@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Pixel Stream</string>
+    <string name="start_streaming">Start Streaming</string>
+    <string name="pixelstream">PixelStream</string>
+</resources>
