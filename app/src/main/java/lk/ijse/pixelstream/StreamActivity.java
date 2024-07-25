@@ -23,7 +23,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
 
-public class MainActivityJava extends AppCompatActivity {
+public class StreamActivity extends AppCompatActivity {
 
     private SurfaceView surfaceView;
     private CameraDevice cameraDevice;
@@ -33,18 +33,17 @@ public class MainActivityJava extends AppCompatActivity {
     private ImageReader imageReader;
     private static final int CAMERA_REQUEST_CODE = 100;
     private String uniqueDeviceID = "device_" + System.currentTimeMillis();
-
+    private String hostAddress = String.valueOf(MainActivity.hostIp.getText());
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_stream);
 
         surfaceView = findViewById(R.id.surfaceView);
-        Button startButton = findViewById(R.id.startButton);
+        startStreaming();
         Button stopButton = findViewById(R.id.stopButton);
 
-        startButton.setOnClickListener(v -> startStreaming());
         stopButton.setOnClickListener(v -> stopStreaming());
 
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.INTERNET}, CAMERA_REQUEST_CODE);
@@ -52,6 +51,7 @@ public class MainActivityJava extends AppCompatActivity {
 
     private void stopStreaming() {
         System.out.println("Stopping streaming");
+        System.out.println(hostAddress);
         if (cameraCaptureSession != null) {
             cameraCaptureSession.close();
             cameraCaptureSession = null;
@@ -77,8 +77,9 @@ public class MainActivityJava extends AppCompatActivity {
         }
     }
 
-    private void startStreaming() {
+    public void startStreaming() {
         System.out.println("Hello World");
+        System.out.println(hostAddress);
         CameraManager cameraManager = (CameraManager) getSystemService(CAMERA_SERVICE);
         try {
             String cameraId = cameraManager.getCameraIdList()[0];
@@ -150,7 +151,7 @@ public class MainActivityJava extends AppCompatActivity {
 
             new Thread(() -> {
                 try {
-                    socket = new Socket("192.168.1.18", 7777);
+                    socket = new Socket(hostAddress, 7777);
                     outputStream = socket.getOutputStream();
                 } catch (Exception e) {
                     e.printStackTrace();
