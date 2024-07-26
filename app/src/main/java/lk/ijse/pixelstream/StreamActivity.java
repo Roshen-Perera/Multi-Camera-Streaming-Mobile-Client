@@ -2,6 +2,7 @@ package lk.ijse.pixelstream;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
@@ -14,6 +15,7 @@ import android.media.ImageReader;
 import android.os.Bundle;
 import android.view.Surface;
 import android.view.SurfaceView;
+import android.view.View;
 import android.widget.Button;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -45,6 +47,13 @@ public class StreamActivity extends AppCompatActivity {
         Button stopButton = findViewById(R.id.stopButton);
 
         stopButton.setOnClickListener(v -> stopStreaming());
+        stopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(StreamActivity.this,MainActivity.class);
+                startActivity(intent);
+            }
+        });
 
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.INTERNET}, CAMERA_REQUEST_CODE);
     }

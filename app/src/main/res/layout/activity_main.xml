@@ -39,14 +39,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:ems="10"
+        android:hint="Host Address"
         android:importantForAutofill="no"
         android:inputType="text"
         android:textSize="25sp"
+        android:textAlignment="center"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.472"
-        tools:ignore="ContentDescription,HardcodedText,LabelFor"/>
+        tools:ignore="ContentDescription,HardcodedText,LabelFor" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
