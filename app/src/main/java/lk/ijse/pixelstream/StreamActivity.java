@@ -13,9 +13,9 @@ import android.hardware.camera2.CaptureRequest;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceView;
-import android.view.View;
 import android.widget.Button;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -23,9 +23,13 @@ import androidx.core.app.ActivityCompat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.List;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class StreamActivity extends AppCompatActivity {
+
+    private static final int CAMERA_REQUEST_CODE = 100;
+    private static final String TAG = "StreamActivity";
 
     private SurfaceView surfaceView;
     private CameraDevice cameraDevice;
@@ -33,9 +37,8 @@ public class StreamActivity extends AppCompatActivity {
     private Socket socket;
     private OutputStream outputStream;
     private ImageReader imageReader;
-    private static final int CAMERA_REQUEST_CODE = 100;
-    private String uniqueDeviceID = "device_" + System.currentTimeMillis();
-    private String hostAddress = String.valueOf(MainActivity.hostIp.getText());
+    private Thread sendThread;
+
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,23 +47,18 @@ public class StreamActivity extends AppCompatActivity {
 
         surfaceView = findViewById(R.id.surfaceView);
         startStreaming();
-        Button stopButton = findViewById(R.id.stopButton);
 
-        stopButton.setOnClickListener(v -> stopStreaming());
-        stopButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(StreamActivity.this,MainActivity.class);
-                startActivity(intent);
-            }
+        Button stopButton = findViewById(R.id.stopButton);
+        stopButton.setOnClickListener(v -> {
+            stopStreaming();
+            startActivity(new Intent(StreamActivity.this, MainActivity.class));
         });
 
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.INTERNET}, CAMERA_REQUEST_CODE);
     }
 
     private void stopStreaming() {
-        System.out.println("Stopping streaming");
-        System.out.println(hostAddress);
+        Log.d(TAG, "Stopping streaming");
         if (cameraCaptureSession != null) {
             cameraCaptureSession.close();
             cameraCaptureSession = null;
@@ -73,7 +71,9 @@ public class StreamActivity extends AppCompatActivity {
             imageReader.close();
             imageReader = null;
         }
-
+        if (sendThread != null && sendThread.isAlive()) {
+            sendThread.interrupt();
+        }
         try {
             if (outputStream != null) {
                 outputStream.close();
@@ -87,8 +87,7 @@ public class StreamActivity extends AppCompatActivity {
     }
 
     public void startStreaming() {
-        System.out.println("Hello World");
-        System.out.println(hostAddress);
+        Log.d(TAG, "Starting streaming");
         CameraManager cameraManager = (CameraManager) getSystemService(CAMERA_SERVICE);
         try {
             String cameraId = cameraManager.getCameraIdList()[0];
@@ -127,8 +126,9 @@ public class StreamActivity extends AppCompatActivity {
             CaptureRequest.Builder captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             captureRequestBuilder.addTarget(surface);
             captureRequestBuilder.addTarget(imageReader.getSurface());
+
             cameraDevice.createCaptureSession(
-                    List.of(surface, imageReader.getSurface()),
+                    Arrays.asList(surface, imageReader.getSurface()),
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(CameraCaptureSession session) {
@@ -148,24 +148,24 @@ public class StreamActivity extends AppCompatActivity {
 
             imageReader.setOnImageAvailableListener(reader -> {
                 Image image = reader.acquireLatestImage();
-                java.nio.ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                byte[] bytes = new byte[buffer.remaining()];
-                buffer.get(bytes);
-
-                // Send frame data to server
-                sendFrame(bytes);
-
-                image.close();
+                if (image != null) {
+                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                    byte[] bytes = new byte[buffer.remaining()];
+                    buffer.get(bytes);
+                    sendFrame(bytes);
+                    image.close();
+                }
             }, null);
 
-            new Thread(() -> {
+            sendThread = new Thread(() -> {
                 try {
-                    socket = new Socket(hostAddress, 7777);
+                    socket = new Socket(MainActivity.hostIp.getText().toString(), 7777);
                     outputStream = socket.getOutputStream();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-            }).start();
+            });
+            sendThread.start();
 
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -175,14 +175,11 @@ public class StreamActivity extends AppCompatActivity {
     private void sendFrame(byte[] frameData) {
         new Thread(() -> {
             try {
-                byte[] dataWithId = (uniqueDeviceID + ":" + frameData.length + "\n").getBytes();
-                byte[] combined = new byte[dataWithId.length + frameData.length];
-                System.arraycopy(dataWithId, 0, combined, 0, dataWithId.length);
-                System.arraycopy(frameData, 0, combined, dataWithId.length, frameData.length);
-                outputStream.write(combined);
-                outputStream.flush();
-                System.out.println("Sent data with ID: " + uniqueDeviceID);
-            } catch (Exception e) {
+                if (outputStream != null) {
+                    outputStream.write(frameData);
+                    outputStream.flush();
+                }
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }).start();
